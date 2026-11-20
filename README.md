@@ -12,7 +12,8 @@ Tauri 2 构建 · DMG 2.3 MB · 空载约 30 MB 内存
 ![tauri](https://img.shields.io/badge/Tauri-2-24C8D8?logo=tauri&logoColor=white)
 ![react](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
 ![rust](https://img.shields.io/badge/Rust-2021-000000?logo=rust&logoColor=white)
-![version](https://img.shields.io/badge/version-0.6.2-brightgreen)
+![release](https://img.shields.io/github/v/release/111seek/mac-butler?color=brightgreen)
+![downloads](https://img.shields.io/github/downloads/111seek/mac-butler/total)
 ![license](https://img.shields.io/badge/license-MIT-blue)
 
 </div>
@@ -71,7 +72,9 @@ Mac 管家想把这两件事合到一个轻量工具里，并且立三条规矩�
 
 ### 下载 DMG
 
-前往 [Releases](https://github.com/111seek/mac-butler/releases) 下载最新的 `Mac 管家_x.y.z_aarch64.dmg`，拖进「应用程序」。
+**[⬇ 下载 MacButler_0.6.2_aarch64.dmg（2.3 MB）](https://github.com/111seek/mac-butler/releases/download/v0.6.2/MacButler_0.6.2_aarch64.dmg)**
+
+双击挂载，把「Mac 管家」拖进「应用程序」。历史版本在 [Releases](https://github.com/111seek/mac-butler/releases)。
 
 - 系统要求：macOS 12.0+，Apple Silicon（arm64）。
 - 当前构建**未签名、未公证**，首次打开如果提示「无法验证开发者」，右键 → 打开，或在「系统设置 → 隐私与安全性」里点「仍要打开」。
