@@ -164,6 +164,9 @@ pub struct Store {
     /// 在菜单栏显示 CPU / 内存
     #[serde(default = "yes")]
     pub tray_stats: bool,
+    /// 文件 / 文件夹的自定义表情：路径 -> emoji
+    #[serde(default)]
+    pub emojis: HashMap<String, String>,
 }
 
 /// 一次文件移动操作（用于「最近操作」与撤销）。
@@ -252,6 +255,8 @@ pub struct Item {
     pub modified: u64,
     pub ext: String,
     pub is_ref: bool,
+    /// 自定义表情（替代系统图标）
+    pub emoji: Option<String>,
 }
 
 fn make_item(path: &Path, is_ref: bool) -> Option<Item> {
@@ -266,6 +271,7 @@ fn make_item(path: &Path, is_ref: bool) -> Option<Item> {
         modified: util::modified_secs(&meta),
         ext,
         is_ref,
+        emoji: None,
     })
 }
 
@@ -333,6 +339,13 @@ fn log_move(s: &mut Store, from: &Path, to: &Path, reason: &str) {
     if s.history.len() > 200 {
         let drop_n = s.history.len() - 200;
         s.history.drain(0..drop_n);
+    }
+}
+
+/// 文件被移动时，自定义表情跟着走。
+fn move_emoji(s: &mut Store, from: &Path, to: &Path) {
+    if let Some(e) = s.emojis.remove(&from.to_string_lossy().into_owned()) {
+        s.emojis.insert(to.to_string_lossy().into_owned(), e);
     }
 }
 
@@ -413,6 +426,7 @@ fn sweep(app: &AppHandle) -> bool {
                     s.assign.remove(&path);
                     let reason = s.collections.iter().find(|c| c.id == id).map(|c| format!("自动归入「{}」", c.name)).unwrap_or_else(|| "自动归类".into());
                     log_move(&mut s, Path::new(&path), &dest, &reason);
+                    move_emoji(&mut s, Path::new(&path), &dest);
                     moved = true;
                 }
                 Err(e) => eprintln!("[collections] 自动归类失败 {e}"),
@@ -525,6 +539,7 @@ fn return_all_reason(s: &mut Store, dir: &Path, reason: &str) -> Result<(), Stri
             Ok(d) => {
                 s.assign.insert(d.to_string_lossy().into_owned(), "-".into());
                 log_move(s, &src, &d, reason);
+                move_emoji(s, &src, &d);
             }
             Err(x) => errs.push(x),
         }
@@ -1166,6 +1181,13 @@ pub async fn collection_items(app: AppHandle, id: String) -> Result<Vec<Item>, S
         _ => vec![],
     };
     sort_items(&mut items, &c.sort);
+    {
+        let st = app.state::<CollectionsState>();
+        let s = st.store.lock().unwrap();
+        for it in &mut items {
+            it.emoji = s.emojis.get(&it.path).cloned();
+        }
+    }
     Ok(items)
 }
 
@@ -1382,6 +1404,7 @@ pub async fn add_to_collection(app: AppHandle, id: String, paths: Vec<String>) -
                         Ok(dest) => {
                             s.assign.remove(&p);
                             log_move(&mut s, &src, &dest, &format!("放入「{}」", c.name));
+                            move_emoji(&mut s, &src, &dest);
                             n += 1;
                         }
                         Err(e) => errs.push(e),
@@ -1448,6 +1471,7 @@ fn remove_inner(app: &AppHandle, id: &str, path: &str) -> Result<(), String> {
             move_into(Path::new(path), &desktop_dir()).map(|d| {
                 s.assign.insert(d.to_string_lossy().into_owned(), "-".into());
                 log_move(&mut s, Path::new(path), &d, &format!("从「{name}」移回桌面"));
+                move_emoji(&mut s, Path::new(path), &d);
             })
         } else {
             Ok(())
@@ -1529,6 +1553,7 @@ pub async fn undo_move(app: AppHandle, id: u64) -> Result<(), String> {
             s.assign.remove(&restored.to_string_lossy().into_owned());
         }
         s.history.retain(|o| o.id != id);
+        move_emoji(&mut s, &src, &restored);
         save(&s);
     }
     commit(&app);
@@ -1543,6 +1568,32 @@ pub async fn clear_move_history(app: AppHandle) {
         save(&st.store.lock().unwrap());
     }
     let _ = app.emit("collections-changed", ());
+}
+
+/// 设置文件 / 文件夹的自定义表情（None 或空字符串表示恢复系统图标）。
+#[tauri::command]
+pub async fn set_item_emoji(app: AppHandle, path: String, emoji: Option<String>) -> Result<(), String> {
+    if !Path::new(&path).exists() {
+        return Err("文件不存在".into());
+    }
+    {
+        let st = app.state::<CollectionsState>();
+        let mut s = st.store.lock().unwrap();
+        match emoji.map(|e| e.trim().to_string()).filter(|e| !e.is_empty()) {
+            Some(e) => {
+                if e.chars().count() > 8 {
+                    return Err("表情太长".into());
+                }
+                s.emojis.insert(path, e);
+            }
+            None => {
+                s.emojis.remove(&path);
+            }
+        }
+        save(&s);
+    }
+    commit(&app);
+    Ok(())
 }
 
 fn set_collapsed_inner(app: &AppHandle, id: &str, collapsed: bool) {
@@ -1811,6 +1862,12 @@ fn build_context_menu(app: &AppHandle, c: &Collection, file: Option<&str>) -> ta
         if c.kind == "collection" || c.kind == "dropbox" {
             m.append(&item(app, &format!("f:remove:{}{SEP}{f}", c.id), if is_ref { "移除快捷引用" } else { "移回桌面" })?)?;
         }
+        m.append(&PredefinedMenuItem::separator(app)?)?;
+        m.append(&item(app, &format!("f:emoji:{f}"), "设置表情…")?)?;
+        let has_emoji = app.state::<CollectionsState>().store.lock().unwrap().emojis.contains_key(f);
+        if has_emoji {
+            m.append(&item(app, &format!("f:emoji-clear:{f}"), "恢复系统图标")?)?;
+        }
         if !is_ref {
             m.append(&PredefinedMenuItem::separator(app)?)?;
             m.append(&item(app, &format!("f:trash:{f}"), "移到废纸篓")?)?;
@@ -2060,6 +2117,15 @@ pub fn handle_menu(app: &AppHandle, ev: MenuEvent) {
         }
         ("f", "open") => { let _ = util::run("open", &[rest]); }
         ("f", "reveal") => { let _ = util::run("open", &["-R", rest]); }
+        ("f", "emoji") => { let _ = app.emit("edit-emoji", rest.to_string()); }
+        ("f", "emoji-clear") => {
+            let p = rest.to_string();
+            {
+                let st = app.state::<CollectionsState>();
+                st.store.lock().unwrap().emojis.remove(&p);
+            }
+            commit(app);
+        }
         ("f", "remove") => {
             if let Some((cid, path)) = rest.split_once(SEP) {
                 if let Err(e) = remove_inner(app, cid, path) {

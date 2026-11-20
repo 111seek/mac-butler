@@ -5,6 +5,14 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { startDrag } from "@crabnebula/tauri-plugin-drag";
 import { api, CItem, Collection, errMsg, fmtBytes, fmtDate, iconUrl, Volume } from "../api";
 
+/** 常用表情：文件夹 / 工作 / 项目类为主，也可以粘贴任意 emoji */
+const EMOJIS = [
+  "📁", "📂", "🗂️", "💼", "📊", "📈", "📉", "🧾",
+  "📝", "🗒️", "📋", "💰", "🏦", "🎯", "🚀", "🛠️",
+  "⚙️", "🧪", "🎨", "📦", "🗄️", "⭐", "🔥", "✅",
+  "🕒", "🏠", "📚", "🎓", "🧮", "🔍", "💡", "🔖",
+];
+
 /** 悬浮在 Mac 桌面上的单个集合窗口。 */
 export default function CollectionWindow({ id }: { id: string }) {
   const [col, setCol] = useState<Collection | null>(null);
@@ -14,6 +22,9 @@ export default function CollectionWindow({ id }: { id: string }) {
   const [dropHover, setDropHover] = useState(false);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState("");
+  const [emojiFor, setEmojiFor] = useState<string | null>(null);
+  const [emojiValue, setEmojiValue] = useState("");
+  const itemsRef = useRef<CItem[]>([]);
   /** 背景透明度 0–100（拖动滑块时实时更新，不等整份数据刷新） */
   const [transp, setTransp] = useState(0);
   const kindRef = useRef<string>("");
@@ -28,6 +39,8 @@ export default function CollectionWindow({ id }: { id: string }) {
     else setItems(await api.collectionItems(id));
   }, [id]);
 
+  itemsRef.current = items;
+
   useEffect(() => {
     load();
     const uns = [
@@ -35,6 +48,12 @@ export default function CollectionWindow({ id }: { id: string }) {
       listen("desktop-changed", load),
       listen<string>("start-rename", (e) => e.payload === id && setRenaming(true)),
       listen<[string, number]>("collection-transparency", (e) => e.payload[0] === id && setTransp(e.payload[1])),
+      listen<string>("edit-emoji", (e) => {
+        const it = itemsRef.current.find((x) => x.path === e.payload);
+        if (!it) return;
+        setEmojiFor(it.path);
+        setEmojiValue(it.emoji ?? "");
+      }),
       getCurrentWebviewWindow().onDragDropEvent(async (e) => {
         const p = e.payload;
         if (p.type === "enter" || p.type === "over") setDropHover(true);
@@ -194,7 +213,11 @@ export default function CollectionWindow({ id }: { id: string }) {
                   onContextMenu={(e) => onItemContext(e, it)}
                 >
                   <div className="cw-icon" style={{ width: size, height: size }}>
-                    <img src={iconUrl(it.path, size, it.modified)} width={size} height={size} draggable={false} loading="lazy" />
+                    {it.emoji ? (
+                      <span className="cw-emoji" style={{ fontSize: size * 0.82 }}>{it.emoji}</span>
+                    ) : (
+                      <img src={iconUrl(it.path, size, it.modified)} width={size} height={size} draggable={false} loading="lazy" />
+                    )}
                     {it.is_ref && col.kind === "collection" && <span className="cw-alias">↗</span>}
                   </div>
                   <div className="cw-name">{it.name}</div>
@@ -210,6 +233,33 @@ export default function CollectionWindow({ id }: { id: string }) {
           ) : (
             <div className="cw-empty">{empty}</div>
           )}
+        </div>
+      )}
+      {emojiFor && (
+        <div className="cw-modal" onClick={() => setEmojiFor(null)}>
+          <div className="cw-picker" onClick={(e) => e.stopPropagation()}>
+            <div className="cw-picker-head">
+              <span>设置表情</span>
+              <span className="cw-picker-preview">{emojiValue || "—"}</span>
+            </div>
+            <input
+              className="cw-emoji-input"
+              placeholder="也可以直接粘贴任意 emoji"
+              value={emojiValue}
+              autoFocus
+              onChange={(e) => setEmojiValue(e.target.value)}
+            />
+            <div className="cw-egrid">
+              {EMOJIS.map((em) => (
+                <button key={em} className={emojiValue === em ? "on" : ""} onClick={() => setEmojiValue(em)}>{em}</button>
+              ))}
+            </div>
+            <div className="cw-picker-actions">
+              <button onClick={() => setEmojiFor(null)}>取消</button>
+              <button className="danger" onClick={async () => { await api.setItemEmoji(emojiFor, null); setEmojiFor(null); }}>恢复图标</button>
+              <button className="primary" onClick={async () => { await api.setItemEmoji(emojiFor, emojiValue); setEmojiFor(null); }}>保存</button>
+            </div>
+          </div>
         </div>
       )}
       {toast && <div className="cw-toast">{toast}</div>}

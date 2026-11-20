@@ -147,6 +147,7 @@ pub fn run() {
             collections::add_to_collection,
             collections::remove_from_collection,
             collections::drag_finished,
+            collections::set_item_emoji,
             collections::return_collection_files,
             collections::set_transparency,
             collections::recent_moves,

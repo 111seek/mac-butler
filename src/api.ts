@@ -88,6 +88,7 @@ export const api = {
   runSweep: () => invoke<number>("run_sweep"),
   setAutoMove: (enabled: boolean) => invoke<void>("set_auto_move", { enabled }),
   returnCollectionFiles: (id: string) => invoke<number>("return_collection_files", { id }),
+  setItemEmoji: (path: string, emoji: string | null) => invoke<void>("set_item_emoji", { path, emoji }),
 
   listWidgets: () => invoke<Widget[]>("list_widgets"),
   getWidget: (id: string) => invoke<Widget | null>("get_widget", { id }),
@@ -114,7 +115,10 @@ export interface Collection {
   folder: string | null; refs: string[]; dir: string | null; icon_size: number; sort: string; transparency: number;
   title_pos: TitlePos; view: ViewMode; title_size: number; locked: boolean;
 }
-export interface CItem { name: string; path: string; is_dir: boolean; size: number; modified: number; ext: string; is_ref: boolean }
+export interface CItem {
+  name: string; path: string; is_dir: boolean; size: number; modified: number; ext: string; is_ref: boolean;
+  emoji?: string | null;
+}
 export interface Volume { name: string; mount: string; total: number; available: number }
 export interface Prefs {
   on_top: boolean; hidden_all: boolean; finder_icons: boolean; snap: boolean; snap_gap: number;

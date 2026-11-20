@@ -327,3 +327,23 @@ html.cw, html.cw body, html.cw #root { background: transparent !important; heigh
 .dir-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
 .dir-row .ellipsis { flex: 1; min-width: 0; }
 .dir-row .link { font-size: 12px; }
+
+/* ---------- 自定义表情 ---------- */
+.cw-emoji { line-height: 1; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4)); }
+.cw-modal { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 20; }
+.cw-picker { width: 320px; background: rgba(32, 32, 38, 0.97); border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 12px;
+  padding: 12px; display: flex; flex-direction: column; gap: 9px; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5); }
+.cw-picker-head { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 600; }
+.cw-picker-preview { font-size: 22px; line-height: 1; min-width: 28px; text-align: right; }
+.cw-emoji-input { font: inherit; font-size: 13px; padding: 6px 8px; border-radius: 7px; border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.3); color: #fff; outline: none; }
+.cw-egrid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 3px; max-height: 168px; overflow-y: auto; }
+.cw-egrid button { font-size: 18px; line-height: 1; background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 5px 0; }
+.cw-egrid button:hover { background: rgba(255, 255, 255, 0.12); }
+.cw-egrid button.on { background: rgba(255, 255, 255, 0.22); border-color: rgba(255, 255, 255, 0.3); }
+.cw-picker-actions { display: flex; justify-content: flex-end; gap: 6px; }
+.cw-picker-actions button { border: 1px solid rgba(255, 255, 255, 0.18); background: rgba(255, 255, 255, 0.08); color: #fff;
+  font-size: 12px; padding: 5px 10px; border-radius: 6px; }
+.cw-picker-actions button:hover { background: rgba(255, 255, 255, 0.16); }
+.cw-picker-actions button.primary { background: var(--c); border-color: var(--c); }
+.cw-picker-actions button.danger { color: #ff8a80; }
