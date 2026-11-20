@@ -1,0 +1,32 @@
+[package]
+name = "mac-butler"
+version = "0.6.2"
+description = "Mac 桌面管家：桌面收纳 + 系统清理"
+edition = "2021"
+
+[lib]
+name = "mac_butler_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7.6", features = [] }
+
+[dependencies]
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSWorkspace", "NSImage", "NSWindow", "NSResponder", "NSGraphicsContext", "NSBitmapImageRep", "NSImageRep", "NSGraphics", "objc2-core-foundation", "NSAlert", "NSButton", "NSControl", "NSView", "NSApplication", "NSOpenPanel", "NSSavePanel", "NSPanel", "NSEvent", "NSScreen"] }
+objc2-foundation = "0.3"
+plist = "1.10.4"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+sysinfo = "0.40.4"
+tauri = { version = "2.12.7", features = ["tray-icon", "macos-private-api", "image-png"] }
+tauri-plugin-drag = "2.1.1"
+trash = "5.4.0"
+
+[profile.release]
+opt-level = "s"
+lto = true
+strip = true
+codegen-units = 1
+# 减少内存与体积：出错直接中止，不做 backtrace 展开
+panic = "abort"

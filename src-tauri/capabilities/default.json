@@ -1,0 +1,16 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "主窗口、桌面集合、小组件与迷你面板权限",
+  "windows": [
+    "main",
+    "col-*",
+    "wg-*",
+    "mini"
+  ],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "drag:default"
+  ]
+}
