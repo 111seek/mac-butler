@@ -111,6 +111,15 @@ export default function Collections({ focusId }: { focusId: string | null }) {
               <span />
             </label>
           </div>
+          <PrefRow
+            title="在桌面显示「桌面集合」快捷方式"
+            desc="网页上传、其他应用的选文件框里，可以直接从「桌面 → 桌面集合」进入集合文件夹"
+            on={prefs.desktop_link}
+            onChange={async () => {
+              try { await api.setPrefs({ desktopLink: !prefs.desktop_link }); load(); }
+              catch (e) { setMsg(errMsg(e)); }
+            }}
+          />
           <PrefRow title="在菜单栏显示 CPU / 内存" desc="点击菜单栏图标可弹出迷你面板" on={prefs.tray_stats} onChange={() => api.setPrefs({ trayStats: !prefs.tray_stats })} />
           <PrefRow title="登录时自动启动" desc="通过 LaunchAgent 在登录后自动打开，桌面集合随时可用" on={prefs.autostart} onChange={async () => {
             try { await api.setPrefs({ autostart: !prefs.autostart }); load(); } catch (e) { setMsg(errMsg(e)); }

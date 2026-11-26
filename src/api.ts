@@ -98,7 +98,7 @@ export const api = {
   popupWidgetMenu: (id: string) => invoke<void>("popup_widget_menu", { id }),
   setCollapsed: (id: string, collapsed: boolean) => invoke<void>("set_collapsed", { id, collapsed }),
   getPrefs: () => invoke<Prefs>("get_prefs"),
-  setPrefs: (p: { onTop?: boolean; hiddenAll?: boolean; snap?: boolean; snapGap?: number; trayStats?: boolean; autostart?: boolean }) => invoke<void>("set_prefs", p),
+  setPrefs: (p: { onTop?: boolean; hiddenAll?: boolean; snap?: boolean; snapGap?: number; trayStats?: boolean; autostart?: boolean; desktopLink?: boolean }) => invoke<void>("set_prefs", p),
   setAutostart: (enabled: boolean) => invoke<void>("set_autostart", { enabled }),
   setFinderIcons: (show: boolean) => invoke<void>("set_finder_icons", { show }),
   listVolumes: () => invoke<Volume[]>("list_volumes"),
@@ -122,7 +122,7 @@ export interface CItem {
 export interface Volume { name: string; mount: string; total: number; available: number }
 export interface Prefs {
   on_top: boolean; hidden_all: boolean; finder_icons: boolean; snap: boolean; snap_gap: number;
-  tray_stats: boolean; autostart: boolean; auto_move: boolean;
+  tray_stats: boolean; autostart: boolean; auto_move: boolean; desktop_link: boolean;
 }
 export const TITLE_SIZES = [12, 13, 14, 15, 16, 18, 20, 24];
 export type TitlePos = "" | "bottom" | "left" | "right" | "inside";

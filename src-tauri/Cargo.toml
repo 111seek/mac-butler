@@ -1,6 +1,6 @@
 [package]
 name = "mac-butler"
-version = "0.6.3"
+version = "0.6.4"
 description = "Mac 桌面管家：桌面收纳 + 系统清理"
 edition = "2021"
 

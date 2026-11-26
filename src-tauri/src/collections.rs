@@ -167,6 +167,9 @@ pub struct Store {
     /// 文件 / 文件夹的自定义表情：路径 -> emoji
     #[serde(default)]
     pub emojis: HashMap<String, String>,
+    /// 在桌面创建「桌面集合」快捷方式（软链接），方便各类选文件框访问
+    #[serde(default)]
+    pub desktop_link: bool,
 }
 
 /// 一次文件移动操作（用于「最近操作」与撤销）。
@@ -232,6 +235,35 @@ fn watch_dirs(app: &AppHandle) -> Vec<PathBuf> {
     v
 }
 
+pub(crate) fn link_path() -> PathBuf {
+    desktop_dir().join("桌面集合")
+}
+
+/// 在桌面创建 / 删除指向 `~/桌面集合` 的软链接。
+pub fn apply_desktop_link(enabled: bool) -> Result<(), String> {
+    let link = link_path();
+    if enabled {
+        let target = store_root();
+        let _ = fs::create_dir_all(&target);
+        match fs::symlink_metadata(&link) {
+            Ok(m) if m.file_type().is_symlink() => {
+                // 已存在且指向别处时重建
+                if fs::canonicalize(&link).ok() != fs::canonicalize(&target).ok() {
+                    let _ = fs::remove_file(&link);
+                    std::os::unix::fs::symlink(&target, &link).map_err(|e| format!("创建快捷方式失败：{e}"))?;
+                }
+            }
+            Ok(_) => return Err("桌面已有同名的「桌面集合」文件夹，请先改名".into()),
+            Err(_) => {
+                std::os::unix::fs::symlink(&target, &link).map_err(|e| format!("创建快捷方式失败：{e}"))?;
+            }
+        }
+    } else if fs::symlink_metadata(&link).map(|m| m.file_type().is_symlink()).unwrap_or(false) {
+        let _ = fs::remove_file(&link);
+    }
+    Ok(())
+}
+
 pub(crate) fn refresh_watcher(app: &AppHandle) {
     crate::watcher::restart(&watch_dirs(app));
 }
@@ -277,8 +309,13 @@ fn make_item(path: &Path, is_ref: bool) -> Option<Item> {
 
 fn list_dir(dir: &Path) -> Vec<Item> {
     let Ok(rd) = fs::read_dir(dir) else { return vec![] };
+    let on_desktop = dir == desktop_dir().as_path();
     rd.flatten()
         .filter(|e| !e.file_name().to_string_lossy().starts_with('.'))
+        // 「桌面集合」是这个应用自己创建的快捷方式，不能当成普通文件收纳
+        .filter(|e| {
+            !(on_desktop && e.file_name() == "桌面集合" && e.file_type().map(|t| t.is_symlink()).unwrap_or(false))
+        })
         .filter_map(|e| make_item(&e.path(), false))
         .collect()
 }
@@ -780,6 +817,11 @@ pub fn on_window_event(window: &Window, event: &WindowEvent) {
 
 pub fn init(app: &AppHandle) {
     let _ = fs::create_dir_all(store_root());
+    {
+        let st = app.state::<CollectionsState>();
+        let on = st.store.lock().unwrap().desktop_link;
+        let _ = apply_desktop_link(on);
+    }
     let need_defaults = !app.state::<CollectionsState>().store.lock().unwrap().initialized;
     if need_defaults {
         let (sx, sy, sw0, _) = screen_rects().first().copied().unwrap_or((0.0, 25.0, 1440.0, 875.0));
@@ -1623,15 +1665,16 @@ pub struct Prefs {
     tray_stats: bool,
     autostart: bool,
     auto_move: bool,
+    desktop_link: bool,
 }
 
 #[tauri::command]
 pub async fn get_prefs(app: AppHandle) -> Prefs {
     let (_, on_top, hidden_all) = snapshot(&app);
-    let (snap, snap_gap, tray_stats, auto_move) = {
+    let (snap, snap_gap, tray_stats, auto_move, desktop_link) = {
         let st = app.state::<CollectionsState>();
         let s = st.store.lock().unwrap();
-        (!s.no_snap, s.snap_gap, s.tray_stats, s.auto_move == Some(true))
+        (!s.no_snap, s.snap_gap, s.tray_stats, s.auto_move == Some(true), s.desktop_link)
     };
     Prefs {
         on_top,
@@ -1642,6 +1685,7 @@ pub async fn get_prefs(app: AppHandle) -> Prefs {
         tray_stats,
         autostart: crate::autostart::is_enabled(),
         auto_move,
+        desktop_link,
     }
 }
 
@@ -1665,6 +1709,7 @@ pub async fn set_prefs(
     snap_gap: Option<f64>,
     tray_stats: Option<bool>,
     autostart: Option<bool>,
+    desktop_link: Option<bool>,
 ) -> Result<(), String> {
     {
         let st = app.state::<CollectionsState>();
@@ -1678,9 +1723,15 @@ pub async fn set_prefs(
         if let Some(v) = tray_stats {
             s.tray_stats = v;
         }
+        if let Some(v) = desktop_link {
+            s.desktop_link = v;
+        }
     }
     if let Some(v) = autostart {
         crate::autostart::set_enabled(v)?;
+    }
+    if let Some(v) = desktop_link {
+        apply_desktop_link(v)?;
     }
     set_flags(&app, on_top, hidden_all);
     Ok(())
@@ -1778,6 +1829,8 @@ fn append_global(app: &AppHandle, m: &Menu<Wry>, on_top: bool, hidden_all: bool)
         (!s.no_snap, s.snap_gap)
     };
     m.append(&check(app, "snap", "集合互相吸附", snap)?)?;
+    let link = app.state::<CollectionsState>().store.lock().unwrap().desktop_link;
+    m.append(&check(app, "desktop_link", "在桌面显示「桌面集合」快捷方式", link)?)?;
     let stats = app.state::<CollectionsState>().store.lock().unwrap().tray_stats;
     m.append(&check(app, "tray_stats", "在菜单栏显示 CPU / 内存", stats)?)?;
     let gs = Submenu::new(app, &format!("吸附间隙（{} px）", gap.round()), true)?;
@@ -1970,6 +2023,15 @@ pub fn handle_menu(app: &AppHandle, ev: MenuEvent) {
         ("toggle", cid) => with_col(app, cid, |c| c.visible = !c.visible),
         ("front", _) => { let v = !snapshot(app).1; set_flags(app, Some(v), None); }
         ("hide_all", _) => { let v = !snapshot(app).2; set_flags(app, None, Some(v)); }
+        ("desktop_link", _) => {
+            let on = !app.state::<CollectionsState>().store.lock().unwrap().desktop_link;
+            if let Err(e) = apply_desktop_link(on) {
+                let _ = alert_confirm("设置失败", &e, "好");
+            } else {
+                app.state::<CollectionsState>().store.lock().unwrap().desktop_link = on;
+            }
+            commit(app);
+        }
         ("tray_stats", _) => {
             {
                 let st = app.state::<CollectionsState>();
