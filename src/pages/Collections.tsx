@@ -12,6 +12,10 @@ export default function Collections({ focusId }: { focusId: string | null }) {
   const [widgets, setWidgets] = useState<Widget[]>([]);
   const [preview, setPreview] = useState<SweepItem[] | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showMoves, setShowMoves] = useState(() => localStorage.getItem("mb.showMoves") === "1");
+  const [showCols, setShowCols] = useState(() => localStorage.getItem("mb.showCols") !== "0");
+  const foldMoves = () => setShowMoves((v) => { localStorage.setItem("mb.showMoves", v ? "0" : "1"); return !v; });
+  const foldCols = () => setShowCols((v) => { localStorage.setItem("mb.showCols", v ? "0" : "1"); return !v; });
   const [msg, setMsg] = useState("");
 
   const load = async () => {
@@ -193,8 +197,11 @@ export default function Collections({ focusId }: { focusId: string | null }) {
 
       {moves.length > 0 && (
         <>
-          <h2>最近移动（{moves.length}）</h2>
-          <div className="list">
+          <div className="fold-head" onClick={foldMoves}>
+            <h2>最近移动（{moves.length}）</h2>
+            <span className="fold-chev">{showMoves ? "▾" : "▸"}</span>
+          </div>
+          {showMoves && <div className="list">
             {moves.slice(0, 6).map((m) => (
               <div key={m.id} className="group-head static">
                 <div className="grow">
@@ -214,11 +221,15 @@ export default function Collections({ focusId }: { focusId: string | null }) {
               <div className="grow muted small">撤销会把文件移回移动前的位置；已删除的记录不影响文件。</div>
               <button className="link" onClick={async () => { await api.clearMoveHistory(); load(); }}>清除记录</button>
             </div>
-          </div>
+          </div>}
         </>
       )}
 
-      <h2>我的集合（{cols.length}）</h2>
+      <div className="fold-head" onClick={foldCols}>
+        <h2>我的集合（{cols.length}）</h2>
+        <span className="fold-chev">{showCols ? "▾" : "▸"}</span>
+      </div>
+      {showCols && (<>
       <p className="muted small">放进集合的文件实际存放在「桌面集合」文件夹里，桌面上不再保留。右键集合可打开存放目录，或在卡片里一键全部移回桌面。</p>
       <div className="col-cards">
         {cols.map((c) => (
@@ -326,6 +337,7 @@ export default function Collections({ focusId }: { focusId: string | null }) {
           </div>
         ))}
       </div>
+      </>)}
 
       <h2>桌面小组件（{widgets.length}）</h2>
       <div className="create-row">

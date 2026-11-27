@@ -1,13 +1,15 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { api, AppMem, fmtBytes, iconUrl, Overview, Widget } from "../api";
+import Sparkline, { pushHistory } from "../components/Sparkline";
 
 /** 桌面小组件：系统概览 / 内存排行。 */
 export default function WidgetWindow({ id }: { id: string }) {
   const [w, setW] = useState<Widget | null>(null);
   const [ov, setOv] = useState<Overview | null>(null);
   const [apps, setApps] = useState<AppMem[]>([]);
+  const memHist = useRef(new Map<string, number[]>());
   const [compact, setCompact] = useState(false);
 
   const load = useCallback(async () => {
@@ -28,7 +30,7 @@ export default function WidgetWindow({ id }: { id: string }) {
       try {
         if (w.kind === "memory") {
           const a = await api.appMemory(compact ? 5 : 8);
-          if (alive) setApps(a);
+          if (alive) { setApps(a); pushHistory(memHist.current, a); }
         } else {
           const o = await api.systemOverview();
           if (alive) setOv(o);
@@ -85,7 +87,7 @@ export default function WidgetWindow({ id }: { id: string }) {
                   <span className="ellipsis">{a.name}</span>
                   <span className="wg-val">{fmtBytes(a.memory)}</span>
                 </div>
-                <div className="wg-bar"><div style={{ width: `${(a.memory / max) * 100}%` }} /></div>
+                <div className="wg-wave"><Sparkline values={memHist.current.get(a.path) ?? [a.memory]} max={max} color="#ec4899" height={14} /></div>
               </div>
             </div>
           ))}

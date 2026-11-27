@@ -1,18 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { api, AppMem, fmtBytes, iconUrl, Overview } from "../api";
+import Sparkline, { pushHistory } from "../components/Sparkline";
 
 /** 菜单栏图标点击后弹出的迷你面板。 */
 export default function Mini() {
   const [ov, setOv] = useState<Overview | null>(null);
   const [apps, setApps] = useState<AppMem[]>([]);
+  const memHist = useRef(new Map<string, number[]>());
 
   useEffect(() => {
     let alive = true;
     const tick = async () => {
       try {
         const [o, a] = await Promise.all([api.systemOverview(), api.appMemory(4)]);
-        if (alive) { setOv(o); setApps(a); }
+        if (alive) { setOv(o); setApps(a); pushHistory(memHist.current, a); }
       } catch { /* 忽略单次采集失败 */ }
     };
     tick();
@@ -43,6 +45,7 @@ export default function Mini() {
           <div key={a.path} className="mini-app" title={`${a.name} · ${a.pids} 个进程`}>
             <img src={iconUrl(a.path, 24)} width={16} height={16} draggable={false} alt="" />
             <span className="grow ellipsis">{a.name}</span>
+            <span className="mini-wave"><Sparkline values={memHist.current.get(a.path) ?? [a.memory]} height={12} color="#3b6cff" /></span>
             <span className="muted small">{fmtBytes(a.memory)}</span>
           </div>
         ))}

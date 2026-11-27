@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, AppMem, errMsg, fmtBytes, iconUrl, Overview, ProcInfo } from "../api";
+import Sparkline, { pushHistory } from "../components/Sparkline";
 
 export default function Dashboard() {
   const [ov, setOv] = useState<Overview | null>(null);
   const [procs, setProcs] = useState<ProcInfo[]>([]);
   const [appMem, setAppMem] = useState<AppMem[]>([]);
+  const memHist = useRef(new Map<string, number[]>());
   const [sortBy, setSortBy] = useState<"cpu" | "memory">("memory");
   const [msg, setMsg] = useState("");
 
@@ -13,7 +15,10 @@ export default function Dashboard() {
     const tick = async () => {
       try {
         const [o, p, m] = await Promise.all([api.systemOverview(), api.topProcesses(sortBy), api.appMemory(6)]);
-        if (alive) { setOv(o); setProcs(p); setAppMem(m); }
+        if (alive) {
+          setOv(o); setProcs(p); setAppMem(m);
+          pushHistory(memHist.current, m);
+        }
       } catch (e) { if (alive) setMsg(errMsg(e)); }
     };
     tick();
@@ -53,12 +58,13 @@ export default function Dashboard() {
       </div>
       <div className="appmem">
         {appMem.map((a) => {
-          const pct = appMem[0] ? (a.memory / appMem[0].memory) * 100 : 0;
           return (
             <div key={a.path} className="appmem-row" title={`${a.path} · ${a.pids} 个进程`}>
               <img src={iconUrl(a.path, 32)} width={22} height={22} draggable={false} alt="" />
               <span className="appmem-name ellipsis">{a.name}</span>
-              <div className="appmem-bar"><div style={{ width: `${pct}%` }} /></div>
+              <div className="appmem-wave">
+                <Sparkline values={memHist.current.get(a.path) ?? [a.memory]} max={appMem[0]?.memory} color="#3b6cff" height={24} />
+              </div>
               <span className="muted small nowrap">{fmtBytes(a.memory)}</span>
             </div>
           );
